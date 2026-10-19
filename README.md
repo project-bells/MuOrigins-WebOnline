@@ -6,6 +6,8 @@
 
 **VM เดิมที่ตรวจแล้ว:** [เพิ่มหน้าทดสอบ WSS ที่มีรหัสผ่านโดยคงหน้า Solo เดิม](deploy/same-vm/README.th.md)
 
+**Build บน VM ใหม่:** [Compile checkpoint แบบจำกัด CPU/RAM หลัง ABI probes ผ่าน](deploy/build-client/README.th.md)
+
 เริ่มจาก `compose.smoke.yml` เพื่อทดสอบ WSS กับ backend จำลองก่อน แล้วจึงใช้ `compose.game.yml` สร้าง GameServer/DB staging ใหม่ Browser C++ ยังต้อง build และทดสอบเข้าเกมจริงก่อนเปิดให้ผู้เล่นใช้งาน
 
 อ่าน `REPORT.th.md` สำหรับผลตรวจ source, paths/functions จริง, protocol และรายการที่ยังไม่พิสูจน์
