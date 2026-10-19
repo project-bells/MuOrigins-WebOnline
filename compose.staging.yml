@@ -1,0 +1,22 @@
+# Example only: mu-staging must be a SEPARATE server/database network.
+services:
+  gateway:
+    build: .
+    environment:
+      LISTEN_HOST: 0.0.0.0
+      MU_ORIGINS: https://playonline-staging.muorigins.online
+      # Nginx enforces real-client IP limits; the gateway sees its one proxy IP.
+      MU_MAX_PER_IP: 64
+      MU_ROUTES: '{"/mu/connect":{"host":"mu-staging","port":44405},"/mu/game/staging":{"host":"mu-staging","port":55901}}'
+    ports:
+      - "127.0.0.1:18081:8081"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    mem_limit: 128m
+    networks: [mu-staging]
+networks:
+  mu-staging:
+    external: true
+    name: mu-network-lab-staging

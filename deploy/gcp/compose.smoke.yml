@@ -1,0 +1,31 @@
+name: mu-web-staging
+services:
+  mock:
+    image: node:24-alpine
+    user: node
+    working_dir: /app
+    command: [node, mock-backend.mjs]
+    volumes:
+      - ./mock-backend.mjs:/app/mock-backend.mjs:ro
+    networks: [lab]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+  gateway:
+    build:
+      context: ../..
+    environment:
+      LISTEN_HOST: 0.0.0.0
+      MU_ORIGINS: ${MU_ORIGIN:?Set the exact staging HTTPS origin}
+      MU_MAX_PER_IP: 64
+      MU_ROUTES: '{"/mu/connect":{"host":"mock","port":44405},"/mu/game/staging":{"host":"mock","port":55901}}'
+    ports: ["127.0.0.1:18081:8081"]
+    networks: [lab]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    mem_limit: 128m
+networks:
+  lab: {}

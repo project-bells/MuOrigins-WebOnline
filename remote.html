@@ -1,0 +1,15 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MU staging network client</title>
+<style>body{background:#111;color:#ddd;font:16px sans-serif;margin:20px}canvas{display:block;width:min(100%,960px);height:auto}pre{white-space:pre-wrap}</style>
+<p>Isolated staging client — test accounts only</p><canvas id="canvas" width="640" height="480" tabindex="0" oncontextmenu="return false"></canvas><pre id="status">Loading rebuilt client…</pre>
+<script>var Module={canvas:document.querySelector('canvas'),print:console.log,printErr:console.error,onRuntimeInitialized(){document.querySelector('#status').textContent='Client loaded';}};</script>
+<script src="remote-fs.js"></script>
+<script type="module">
+import {createAdapter} from './browser-adapter.mjs';
+const baseUrl=(location.protocol==='https:'?'wss:':'ws:')+'//'+location.host;
+window.muRemote=createAdapter({module:Module,baseUrl,routes:{
+  '127.0.0.1:44405':'/mu/connect',
+  // MUST match the IP:port advertised by the isolated ConnectServer.
+  '127.0.0.1:55901':'/mu/game/staging'
+}});
+const script=document.createElement('script');script.src='shell_login.js';document.body.append(script);
+</script></html>

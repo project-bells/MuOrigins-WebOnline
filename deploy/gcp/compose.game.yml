@@ -1,0 +1,59 @@
+# Separate VM/project only. This file creates NEW database storage.
+name: mu-web-staging
+services:
+  mysql:
+    image: mysql:5.7
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set a new staging root password}
+      # Upstream schema contains USE MuOnline97. Isolation is by VM/container/volume.
+      MYSQL_DATABASE: MuOnline97
+      MYSQL_USER: mu_staging
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set a new staging database password}
+    volumes:
+      - staging-db:/var/lib/mysql
+      - ../../upstream/server/MuServer/MySQL/DB/CreateDatabase.sql:/docker-entrypoint-initdb.d/01-create.sql:ro
+    networks: [lab]
+    healthcheck:
+      test: [CMD-SHELL, 'MYSQL_PWD="$$MYSQL_ROOT_PASSWORD" mysqladmin ping -h 127.0.0.1 -uroot --silent']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+  mu-staging:
+    build:
+      context: ../../upstream/server
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: mu_staging
+      DB_PASS: ${MYSQL_PASSWORD:?Set a new staging database password}
+      DB_NAME: MuOnline97
+      # Logical redirect address, mapped to /mu/game/staging by remote.html.
+      # Windows testers can use SSH tunnels to this VM's loopback ports.
+      PUBLIC_IP: 127.0.0.1
+    depends_on:
+      mysql: {condition: service_healthy}
+    ports:
+      - "127.0.0.1:44405:44405"
+      - "127.0.0.1:55901:55901"
+    networks: [lab]
+    restart: unless-stopped
+  gateway:
+    build:
+      context: ../..
+    environment:
+      LISTEN_HOST: 0.0.0.0
+      MU_ORIGINS: ${MU_ORIGIN:?Set the exact staging HTTPS origin}
+      MU_MAX_PER_IP: 64
+      MU_ROUTES: '{"/mu/connect":{"host":"mu-staging","port":44405},"/mu/game/staging":{"host":"mu-staging","port":55901}}'
+    ports: ["127.0.0.1:18081:8081"]
+    networks: [lab]
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    mem_limit: 128m
+networks:
+  lab: {}
+volumes:
+  staging-db: {}

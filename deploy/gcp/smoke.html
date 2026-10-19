@@ -1,0 +1,13 @@
+<!doctype html><html lang="th"><meta charset="utf-8"><title>MU staging transport test</title>
+<h1>ทดสอบ WSS transport เท่านั้น</h1><p>หน้านี้ไม่ใช่เกม และไม่มีการล็อกอินบัญชี MU</p><button id="run">ทดสอบ ConnectServer จำลอง</button><pre id="result"></pre>
+<script>
+document.querySelector('#run').onclick=()=>{
+ const result=document.querySelector('#result');result.textContent='Connecting…';
+ const ws=new WebSocket((location.protocol==='https:'?'wss:':'ws:')+'//'+location.host+'/mu/connect');ws.binaryType='arraybuffer';let count=0;
+ const timeout=setTimeout(()=>{result.textContent+='\nTimed out';ws.close();},8000);
+ ws.onmessage=e=>{if(typeof e.data==='string'){result.textContent=e.data;ws.send(new Uint8Array([0xc1,4,0xf4,2]));return;}
+  count+=e.data.byteLength;result.textContent+='\nbytes: '+Array.from(new Uint8Array(e.data),x=>x.toString(16).padStart(2,'0')).join(' ');
+  if(count>=17){result.textContent+='\nTransport fixture received. ยังไม่ใช่ผล login/เข้าเกม';clearTimeout(timeout);ws.close();}};
+ ws.onerror=()=>{result.textContent+='\nWebSocket error';};ws.onclose=()=>clearTimeout(timeout);
+};
+</script></html>

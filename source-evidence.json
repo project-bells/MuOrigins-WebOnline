@@ -1,0 +1,308 @@
+{
+  "commits": {
+    "browser": "fb5d6aed769e6384a2f25164e75eded456307be7",
+    "server": "fdfa008b4beb2905b9b0e144a7d6bb7713627766"
+  },
+  "keyCompatibility": {
+    "clientToServer": {
+      "encryptionFile": "src/client/Client/Data/Enc1.dat",
+      "decryptionFile": "MuServer/Data/Hack/Dec1.dat",
+      "encryptionSha256": "ff3e29ff694c7837eb26c2048e82d7f82c169d7afc9807863b2bf297c795837d",
+      "decryptionSha256": "b9fa4e74a42913660bac3bcf82f517110eb0426d7237961b2d6a6b4d4fe1009e",
+      "modulusMatches": true,
+      "xorMatches": true,
+      "inverseKeys": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    "serverToClient": {
+      "encryptionFile": "MuServer/Data/Hack/Enc2.dat",
+      "decryptionFile": "src/client/Client/Data/Dec2.dat",
+      "encryptionSha256": "ff3e29ff694c7837eb26c2048e82d7f82c169d7afc9807863b2bf297c795837d",
+      "decryptionSha256": "b9fa4e74a42913660bac3bcf82f517110eb0426d7237961b2d6a6b4d4fe1009e",
+      "modulusMatches": true,
+      "xorMatches": true,
+      "inverseKeys": [
+        true,
+        true,
+        true,
+        true
+      ]
+    },
+    "note": "Static key algebra only; not native cipher execution or live authentication"
+  },
+  "packetFramePolicy": {
+    "rows": 272,
+    "tableEntries": 256,
+    "mismatches": []
+  },
+  "evidence": [
+    {
+      "repo": "browser",
+      "file": "src/client/browser/net_ws.cpp",
+      "sha256": "72a5b9098af58cc444445221d2164f0ca09622ace3d26e5b861c4c63b57caacb",
+      "functions": [
+        {
+          "name": "mu_net_connect",
+          "line": 145
+        },
+        {
+          "name": "mu_net_send",
+          "line": 196
+        },
+        {
+          "name": "mu_net_push_packet",
+          "line": 81
+        }
+      ]
+    },
+    {
+      "repo": "browser",
+      "file": "src/client/browser/shell_login.cpp",
+      "sha256": "e2e9d2cd614b228110dee8713a67be9a8eb59eabf2941c6bbcc7b7f952390943",
+      "functions": [
+        {
+          "name": "int main",
+          "line": 504
+        },
+        {
+          "name": "read_login_query",
+          "line": 461
+        }
+      ]
+    },
+    {
+      "repo": "browser",
+      "file": "web/app.js",
+      "sha256": "48bf978c4aeb24162e9245262adbee043ba6f0d95fbcd92905a6e1fa9269d8d5",
+      "functions": [
+        {
+          "name": "function initServerWorker",
+          "line": 352
+        },
+        {
+          "name": "window.soloBridge =",
+          "line": 449
+        }
+      ]
+    },
+    {
+      "repo": "browser",
+      "file": "src/client/src/Config/Config_Load.cpp",
+      "sha256": "6b786c1fe9f0e89867508b76ab392496272a3b157cbb869ace8163aab53d59be",
+      "functions": [
+        {
+          "name": "int Config_ReadServerAddr",
+          "line": 335
+        }
+      ]
+    },
+    {
+      "repo": "browser",
+      "file": "src/client/src/Net/Network.cpp",
+      "sha256": "825f574acbeef35d34276c9852e7faeeedb2a32043c1e75da9d7317b4dce30df",
+      "functions": [
+        {
+          "name": "void CNetwork::SendLogin",
+          "line": 122
+        },
+        {
+          "name": "void CNetwork::BeginConnectServerSession",
+          "line": 182
+        },
+        {
+          "name": "void CNetwork::SendFrameC1",
+          "line": 310
+        },
+        {
+          "name": "void CNetwork::SendFrameC3",
+          "line": 337
+        },
+        {
+          "name": "int CNetwork::SendRaw",
+          "line": 245
+        }
+      ]
+    },
+    {
+      "repo": "browser",
+      "file": "src/client/src/Net/Recv/Recv_Account.cpp",
+      "sha256": "bbe5efa7d39ce51bb7be06af2b192ebc0d874ca9ef5914dcd2bd050a2b28fbdc",
+      "functions": [
+        {
+          "name": "void Recv_JoinServer",
+          "line": 37
+        },
+        {
+          "name": "void Recv_CustomServerList",
+          "line": 225
+        },
+        {
+          "name": "void Recv_ServerList",
+          "line": 250
+        },
+        {
+          "name": "void Recv_Redirect",
+          "line": 291
+        }
+      ]
+    },
+    {
+      "repo": "browser",
+      "file": "src/client/src/Scene/Scene_CharSelect_Nav.cpp",
+      "sha256": "085f5fb4c65c2e4bf1457811bd11c31ea73e0fbd13f00a11eff92858c2e2c3c4",
+      "functions": [
+        {
+          "name": "int __fastcall CWsctlc_nRecv",
+          "line": 570
+        }
+      ]
+    },
+    {
+      "repo": "browser",
+      "file": "src/client/src/Render/SMD_Parser.cpp",
+      "sha256": "7ef28a629b6322261aa45a90b3283bc40b62b16d948486f983ec042b57686f77",
+      "functions": [
+        {
+          "name": "int __cdecl Net_Connect",
+          "line": 870
+        }
+      ]
+    },
+    {
+      "repo": "server",
+      "file": "Source/MuServer/ConnectServer/ConnectServerProtocol.cpp",
+      "sha256": "27c3b1e7aa45102c8f778181336b101c25d60a189e25aabe13a3ec3ce3af9794",
+      "functions": [
+        {
+          "name": "void ConnectServerProtocolCore",
+          "line": 8
+        },
+        {
+          "name": "void CCServerListRecv",
+          "line": 78
+        },
+        {
+          "name": "void CCServerInfoRecv",
+          "line": 101
+        }
+      ]
+    },
+    {
+      "repo": "server",
+      "file": "Source/MuServer/GameServer/SocketManagerLinux.cpp",
+      "sha256": "3944219c8560ba47f2116526c6fcc7264913892cdb6acee586384fc5370900eb",
+      "functions": [
+        {
+          "name": "bool CSocketManager::DataRecv",
+          "line": 207
+        },
+        {
+          "name": "bool CSocketManager::DataSend",
+          "line": 405
+        },
+        {
+          "name": "void CSocketManager::OnRecv",
+          "line": 531
+        }
+      ]
+    },
+    {
+      "repo": "server",
+      "file": "Source/MuServer/GameServer/Protocol.cpp",
+      "sha256": "8123a1819d7ff38948f2529eeae49604e21a929526ebcbad540b21f1e6249be2",
+      "functions": [
+        {
+          "name": "void CGConnectAccountRecv",
+          "line": 1161
+        },
+        {
+          "name": "void CGSetHwidRecv",
+          "line": 1251
+        },
+        {
+          "name": "void GCConnectClientSend",
+          "line": 1906
+        }
+      ]
+    },
+    {
+      "repo": "server",
+      "file": "Source/MuServer/GameServer/PacketManager.cpp",
+      "sha256": "3168ae15da9f364ee6339d123b1b9490c2ea1c63146fef959f8445f651bfe176",
+      "functions": [
+        {
+          "name": "int CPacketManager::Encrypt(",
+          "line": 170
+        },
+        {
+          "name": "int CPacketManager::Decrypt(",
+          "line": 204
+        },
+        {
+          "name": "void CPacketManager::XorData",
+          "line": 486
+        }
+      ]
+    },
+    {
+      "repo": "server",
+      "file": "Source/MuServer/GameServer/HackCheck.cpp",
+      "sha256": "b1b2cd907dd351f8f08629cc475341006ec8669ee75522e3c3aab051645b7e22",
+      "functions": [
+        {
+          "name": "void DecryptData",
+          "line": 15
+        },
+        {
+          "name": "void EncryptData",
+          "line": 28
+        },
+        {
+          "name": "void InitHackCheck",
+          "line": 57
+        }
+      ]
+    },
+    {
+      "repo": "server",
+      "file": "Source/MuServer/GameServer/JSProtocol.cpp",
+      "sha256": "aef796b4c53651544852acf6a1b2b35680333046cf4bc0e818c66f9b5c764a44",
+      "functions": [
+        {
+          "name": "void GJConnectAccountSend",
+          "line": 72
+        },
+        {
+          "name": "void JGConnectAccountRecv",
+          "line": 89
+        }
+      ]
+    },
+    {
+      "repo": "server",
+      "file": "Source/MuServer/JoinServer/JoinServerProtocol.cpp",
+      "sha256": "feadc01afbb17bf158f41bc545a2582116c5c3721015493a7158b2c20b9bc904",
+      "functions": [
+        {
+          "name": "void GJConnectAccountRecv",
+          "line": 87
+        }
+      ]
+    },
+    {
+      "repo": "server",
+      "file": "Source/MuServer/GameServer/IpManager.cpp",
+      "sha256": "459dd86ad0e10e3dd6b019d3da6c55a44e4b79ebec89c2e5040a224424798b9a",
+      "functions": [
+        {
+          "name": "bool CIpManager::CheckIpAddress",
+          "line": 17
+        }
+      ]
+    }
+  ]
+}

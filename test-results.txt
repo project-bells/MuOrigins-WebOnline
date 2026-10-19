@@ -1,0 +1,25 @@
+✔ staging CS fixture handles fragmented request and returns empty list (20.2339ms)
+✔ opaque bytes survive binary WS -> TCP -> WS, including non-MU headers (35.199ms)
+✔ TCP split/coalesced chunks preserve the complete byte stream (24.7312ms)
+✔ origin, unknown route and arbitrary destination queries rejected (7.8634ms)
+✔ text data cannot reach TCP (4.9001ms)
+✔ message size limit closes oversized message (5.6958ms)
+✔ rate budget closes flooding session (4.7137ms)
+✔ connection cap rejects second session (7.7538ms)
+✔ upstream disconnect propagates to WS (4.2189ms)
+✔ WS disconnect releases TCP connection (4.2102ms)
+✔ upstream refusal closes session without ready (5.0708ms)
+✔ C1/C2/C3/C4 diagnostic framing handles every two-way split and coalescing (1.0295ms)
+✔ diagnostic framing rejects impossible lengths and unknown tags (0.3054ms)
+✔ adapter waits for upstream ready and discards stale socket callbacks (0.5244ms)
+✔ adapter copies sends, refreshes heap and splits large receives (0.2235ms)
+✔ adapter fails closed on unmapped redirect, text, early bytes and overflow (0.2387ms)
+✔ real JS adapter and gateway deliver copied bytes end to end (6.6191ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 407.0775

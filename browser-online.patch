@@ -1,0 +1,275 @@
+diff --git a/src/client/browser/net_ws.cpp b/src/client/browser/net_ws.cpp
+--- a/src/client/browser/net_ws.cpp
++++ b/src/client/browser/net_ws.cpp
+@@ -13,6 +13,7 @@
+ #include <string.h>
+ 
+ static int g_open = 0;
++static int g_pending = 0;
+ static int g_err = 0;
+ static char g_host[128] = "127.0.0.1";
+ static unsigned char* g_in = 0;
+@@ -32,7 +33,7 @@ static void post_event(unsigned evt) {
+ 
+ static int append_in(const unsigned char* data, int n) {
+     if (n <= 0) return 1;
+-    if (g_in_len > 0x4000000 || n > 0x4000000) {
++    if (n > 262144 || g_in_len > 262144 - n) {
+         printf("SOLO: recv overflow\n");
+         fflush(stdout);
+         return 0;
+@@ -70,6 +71,7 @@ static void drain_in() {
+     }
+ }
+ 
++extern "C" void mu_net_push_disconnect(void);
+ static unsigned char g_push_buf[65536];
+ 
+ // Function callable from JS to get buffer pointer for incoming packets
+@@ -80,14 +82,14 @@ extern "C" EMSCRIPTEN_KEEPALIVE unsigned char* mu_net_get_push_buffer(void) {
+ // Function callable from JS to push incoming packets from server_worker
+ extern "C" EMSCRIPTEN_KEEPALIVE void mu_net_push_packet(int len) {
+     if (len > 0 && len <= (int)sizeof(g_push_buf)) {
+-        append_in(g_push_buf, len);
++        if (!append_in(g_push_buf, len)) { mu_net_push_disconnect(); return; }
+         drain_in();
+     }
+ }
+ 
+ extern "C" EMSCRIPTEN_KEEPALIVE void mu_net_push_bytes(const unsigned char* data, int len) {
+     if (data && len > 0) {
+-        append_in(data, len);
++        if (!append_in(data, len)) { mu_net_push_disconnect(); return; }
+         drain_in();
+     }
+ }
+@@ -146,46 +148,45 @@ extern "C" int mu_net_connect(SOCKET, const void* addr, int len) {
+     g_open = 0;
+     g_in_len = 0;
+     g_err = 0;
+-    MuEmu::SetActive(false);
+-
+-    int realmMode = (int)ServerSelectHi;
+-    if (realmMode < 0 || realmMode > 2) realmMode = 0;
+-
+-    printf("SOLO: in-memory bridge connect realm=%d\n", realmMode);
+-    fflush(stdout);
+-
+-    EM_ASM({
++    if (!addr || len < (int)sizeof(sockaddr_in)) return -1;
++    const sockaddr_in* endpoint = (const sockaddr_in*)addr;
++    unsigned short port = htons(endpoint->sin_port); // byte swap; compat header exposes htons only
++    g_pending = 1;
++    MuEmu::SetActive(!gNetwork.IsConnectServerMode());
++    int started = EM_ASM_INT({
+         Module['HEAPU8'] = HEAPU8;
+-        if (typeof window !== 'undefined') {
+-            window['HEAPU8'] = HEAPU8;
+-        }
+-        if (typeof window !== 'undefined' && window.soloBridge && window.soloBridge.connect) {
+-            window.soloBridge.connect($0);
+-        }
+-    }, realmMode);
+-
+-    g_open = 1;
+-    post_event(FD_WRITE);
+-    return 0;
++        try {
++            if (!window.muRemote) return 0;
++            window.muRemote.connect(UTF8ToString($0), $1);
++            return 1;
++        } catch (e) { return 0; }
++    }, g_host, port);
++    if (!started) { g_pending = 0; g_err = 10061; return -1; }
++    g_err = WSAEWOULDBLOCK;
++    return -1;
+ }
+ 
+ extern "C" int mu_net_closesocket(SOCKET) {
+-    if (g_open) {
++    if (g_open || g_pending) {
+         EM_ASM({
+-            if (typeof window !== 'undefined' && window.soloBridge && window.soloBridge.disconnect) {
+-                window.soloBridge.disconnect();
+-            }
++            if (window.muRemote) window.muRemote.disconnect();
+         });
+     }
+-    g_open = 0;
++    g_open = g_pending = 0;
+     g_in_len = 0;
+     g_err = 0;
+     return 0;
+ }
+ 
++extern "C" EMSCRIPTEN_KEEPALIVE void mu_net_push_open(void) {
++    if (!g_pending) return;
++    g_pending = 0; g_open = 1; g_err = 0;
++    post_event(FD_WRITE);
++}
++
+ extern "C" EMSCRIPTEN_KEEPALIVE void mu_net_push_disconnect(void) {
+-    if (g_open) {
+-        g_open = 0;
++    if (g_open || g_pending) {
++        g_open = g_pending = 0;
+         g_in_len = 0;
+         g_err = 0;
+         post_event(FD_CLOSE);
+@@ -200,20 +201,13 @@ extern "C" int mu_net_send(SOCKET, const char* buf, int len, int) {
+     }
+     if (len <= 0) return 0;
+ 
+-    EM_ASM({
+-        if (typeof window !== 'undefined' && window.soloBridge && window.soloBridge.send) {
+-            var data = new Uint8Array(HEAPU8.subarray($0, $0 + $1));
+-            window.soloBridge.send(data);
+-        }
++    int result = EM_ASM_INT({
++        try {
++            return window.muRemote.send(new Uint8Array(HEAPU8.subarray($0, $0 + $1)));
++        } catch (e) { return -1; }
+     }, buf, len);
+-
+-    if (g_sends < 8) {
+-        printf("SOLO: client sent %d bytes\n", len);
+-        fflush(stdout);
+-    }
+-    g_sends++;
+-    g_err = 0;
+-    return len;
++    g_err = result < 0 ? 10054 : 0;
++    return result;
+ }
+ 
+ extern "C" int mu_net_recv(SOCKET, char* buf, int len, int) {
+diff --git a/src/client/browser/shell_login.cpp b/src/client/browser/shell_login.cpp
+--- a/src/client/browser/shell_login.cpp
++++ b/src/client/browser/shell_login.cpp
+@@ -514,15 +514,15 @@ int main(void) {
+     // [LOGIN] Version, so the footer was "Version:  - by ...".
+     if (!ConfigLoginVersion[0])
+         lstrcpynA(ConfigLoginVersion, "0.97k", sizeof(ConfigLoginVersion));
+-    read_login_query();
++    // Online build: credentials must never come from URL parameters.
+     {
+         extern char g_ServerIPBuf[128];
+         unsigned short port = 0;
+         Config_ReadServerAddr(NULL, NULL, g_ServerIPBuf, &port);
+-        lstrcpynA(g_ServerIPBuf, "127.0.0.1", 128);
++        // Config_ReadServerAddr supplies the staging ConnectServer identity.
+         szServerIpAddress = g_ServerIPBuf;
+-        g_ServerPort = 55901;
+-        gNetwork.SetConnectServer(false); // Solo offline mode: direct to in-memory GameServer
++        g_ServerPort = port;
++        // Keep ConnectServer enabled by Config_ReadServerAddr.
+         MuEmu::SetActive(false); // Solo offline mode uses raw standard MU packets
+         printf("LOGIN local %s:%u lang=%d font=%d res=%ux%u\n",
+                szServerIpAddress, (unsigned)g_ServerPort,
+@@ -562,26 +562,7 @@ int main(void) {
+     ServerSelectHi = (DWORD)-1;
+     ServerSelectLo = (DWORD)-1;
+ 
+-    // 🟢 Realm 0: Easy (300x EXP, High Drops, Reset Lvl 300)
+-    char* srv0 = DAT_083a45d8 + 0 * 0x21e;
+-    memcpy(srv0, "Arcadia [Easy]", 15);
+-    srv0[0x14] = 1;                         // 1 channel
+-    *(unsigned short*)(srv0 + 0x2c) = 0;   // channel_id 0 (Easy)
+-    srv0[0x2e] = 25;                       // load 25% (green)
+-
+-    // 🟡 Realm 1: Medium (100x EXP, Classic Rates, Reset Lvl 400)
+-    char* srv1 = DAT_083a45d8 + 1 * 0x21e;
+-    memcpy(srv1, "Valhalla [Medium]", 18);
+-    srv1[0x14] = 1;                         // 1 channel
+-    *(unsigned short*)(srv1 + 0x2c) = 1;   // channel_id 1 (Medium)
+-    srv1[0x2e] = 50;                       // load 50% (green)
+-
+-    // 🔴 Realm 2: Hard (30x EXP, Hardcore, Low Drops, Reset Lvl 400)
+-    char* srv2 = DAT_083a45d8 + 2 * 0x21e;
+-    memcpy(srv2, "Asgard [Hard]", 14);
+-    srv2[0x14] = 1;                         // 1 channel
+-    *(unsigned short*)(srv2 + 0x2c) = 2;   // channel_id 2 (Hard)
+-    srv2[0x2e] = 75;                       // load 75% (green)
++    // Online server names and occupancy come from F4/04 and F4/02.
+ 
+     // WinMain fills RandomTable before anything else calls rand(). The browser
+     // never enters WinMain, so the table stayed zero and every Zen coin of a
+diff --git a/src/client/src/Net/Recv/Recv_Account.cpp b/src/client/src/Net/Recv/Recv_Account.cpp
+--- a/src/client/src/Net/Recv/Recv_Account.cpp
++++ b/src/client/src/Net/Recv/Recv_Account.cpp
+@@ -43,16 +43,11 @@ void Recv_JoinServer(const BYTE* Msg)
+         // real: con 0, ClearCharacters(0) conservaría las entidades con Key==0
+         // (el Hero stale del slot 0) → fantasma renderizado + hover pegado.
+         HeroKey   = g_HeroKey;
+-        // SOLO MODE: Immediately send login credentials without showing password dialog
+-        DAT_083a7c14   = 3;          // login sub-state = WaitingLoginResult
+-        DAT_05826cb0   = 0x13;       // In flight login marker (prevents Game_SceneUpdate bounce to CredentialInput)
+-        strncpy(LogInID, "solo", sizeof(LogInID) - 1);
++        DAT_083a7c14 = 2; // CredentialInput
++        DAT_05826cb0 = 2;
++        InputNumber = 2;
+         PlayBuffer(27, 0, 0);
+-        NetLog("NET:    JoinServer OK: HeroKey=%d (solo passwordless auto-login)", g_HeroKey);
+-        if (gUserSettings.GetLanguage() != USER_LANG_DEFAULT)
+-            Lang_Send(gUserSettings.GetLanguage());
+         HWID_Send();
+-        gNetwork.SendLogin("solo", "solo");
+         gReconnect.OnJoinServer();
+     } else {
+         NetLog("NET:    JoinServer FAIL code=%d → SetErrorMessage(113)", Msg[4]);
+@@ -97,24 +92,6 @@ void Recv_LoginResult(const BYTE* Msg)
+     NetLog("NET:  → F1/01 LOGIN-RESULT code=0x%02X -> state=%u (t=%lu)",
+            Msg[4], state, (unsigned long)GetTickCount());
+ 
+-    // DESVIACIÓN: auto-reintento del PRIMER login fallido con code 0x02.  Contra
+-    // MuEmu el 1er F1/01 se rechaza (0x02 = pass incorrecta) con datos IDÉNTICOS al
+-    // 2do intento que SÍ entra (0x01) — quirk del primer paquete C3, no es la
+-    // contraseña.  Reintentamos UNA sola vez simulando Enter (DAT_055ca038),
+-    // que hace que Game_SceneUpdate re-envíe las MISMAS credenciales.  Si la
+-    // pass fuera realmente incorrecta, el 2do intento también da 0x02 y ahí sí
+-    // se muestra el error.  Sólo 0x02 — no reintentamos banned/already-online/
+-    // version-mismatch para no enmascararlos.
+-    {
+-        static int s_loginAutoRetried = 0;
+-        if (Msg[4] == 0x02 && !s_loginAutoRetried) {
+-            s_loginAutoRetried = 1;
+-            DAT_055ca038 = 1;   // simula Enter → re-envía el login (mismas creds)
+-            NetLog("NET:    F1/01 AUTO-RETRY (first 0x02 = likely first-packet quirk)");
+-        } else {
+-            s_loginAutoRetried = 0;   // reset en éxito o en 2do fallo
+-        }
+-    }
+ }
+ 
+ // ---------------------------------------------------------------------------
+diff --git a/src/client/src/Scene/Scene_CharSelect_Nav.cpp b/src/client/src/Scene/Scene_CharSelect_Nav.cpp
+--- a/src/client/src/Scene/Scene_CharSelect_Nav.cpp
++++ b/src/client/src/Scene/Scene_CharSelect_Nav.cpp
+@@ -605,12 +605,15 @@ int __fastcall CWsctlc_nRecv(void *param_1)
+     int iOff = 0;
+     while (true) {
+         BYTE *pBase = (BYTE *)((int)param_1 + 0x2010);
++        int available = *(int *)((int)param_1 + 0x4010);
++        if (available < 2) break;
+         BYTE  hdr   = pBase[iOff];
+         BYTE *pPkt  = pBase + iOff;
+         uint  uLen;
+         if ((hdr == 0xc1) || (hdr == 0xc3)) {
+             uLen = pBase[iOff + 1];
+         } else if ((hdr == 0xc2) || (hdr == 0xc4)) {
++            if (available < 3) break;
+             uLen = (uint)pBase[iOff + 1] * 0x100 + pBase[iOff + 2];
+         } else {
+             // Después de MuEmu::DecryptRecv los bytes nuevos ya son texto plano,
+@@ -622,7 +625,10 @@ int __fastcall CWsctlc_nRecv(void *param_1)
+             *(int *)((int)param_1 + 0x4010) = 0;
+             return 0;
+         }
+-        if (uLen == 0) return 0;
++        if (uLen < ((hdr == 0xc2 || hdr == 0xc4) ? 4u : 3u) || uLen > 0x2000) {
++            Net_Disconnect((int)param_1);
++            return 0;
++        }
+         if (*(int *)((int)param_1 + 0x4010) < (int)uLen) break;
+ 
+         CPacketQueue_PushPacket((int)param_1, (int)pPkt, uLen);
