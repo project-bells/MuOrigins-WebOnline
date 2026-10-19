@@ -13,7 +13,7 @@ text = (source / 'remote.html').read_text(encoding='utf-8')
 assert text.count('<canvas id="canvas"') == 1
 marker = '<script src="remote-fs.js"></script>'
 assert text.count(marker) == 1 and 'window.muRemote=createAdapter' in text
-header = '''<header class="mu-bar">
+header = '''<header id="muTopBar" class="mu-bar">
 <div class="mu-brand"><strong>MU ORIGINS</strong><small>/ WEB ONLINE 0.97K</small><span class="mu-badge">● ONLINE CLIENT</span></div>
 <nav class="mu-actions" aria-label="เครื่องมือเกม">
 <button id="mu-auto-toggle" type="button" aria-pressed="false" disabled>▶ Auto</button>

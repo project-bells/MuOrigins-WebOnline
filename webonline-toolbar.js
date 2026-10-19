@@ -23,7 +23,7 @@
     stop();
     try {
       if (document.fullscreenElement) await document.exitFullscreen();
-      else await document.getElementById('game-stage').requestFullscreen();
+      else await document.documentElement.requestFullscreen();
       canvas.focus();
     } catch {
       document.getElementById('auto-status').textContent = 'เปิดเต็มจอไม่ได้ กรุณาลองอีกครั้ง';

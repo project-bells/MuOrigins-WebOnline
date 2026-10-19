@@ -24,3 +24,10 @@ ONLINE CLIENT ระบุชนิดหน้า ไม่ใช่ตัว�
 ตรวจแล้ว: JS tests, installer แยก directory และคง routes เดิม,
 หน้า preview ด้วย runtime จำลอง: Auto/Stop, เปิดปิดวิธีใช้, เต็มจอ
 ต้องทดสอบร่วมกับ WASM จริงหลังติดตั้งบน VM และบนมือถือเพิ่มเติม
+
+แก้ regression ขนาด canvas: native size_canvas() เป็นผู้กำหนดขนาดและตำแหน่ง
+ห้ามบังคับ max-width หรือ aspect ratio ใน CSS และ header ต้องมี id=muTopBar
+เพื่อให้ page_extent()/size_canvas() หักความสูงจริงออกจากพื้นที่เกม
+เต็มจอใช้ documentElement เพื่อรักษา toolbar และ geometry เดิม
+ตรวจด้วย upstream WASM จริงในเครื่อง: canvas backing/display 1280x668
+ตรงกัน และ top=52 ตรงกับ header; ยังไม่ยืนยัน login/แชตไทย production
