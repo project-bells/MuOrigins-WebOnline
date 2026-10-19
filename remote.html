@@ -3,6 +3,7 @@
 <p>Isolated staging client — test accounts only</p><canvas id="canvas" width="640" height="480" tabindex="0" oncontextmenu="return false"></canvas><pre id="status">Loading rebuilt client…</pre>
 <script>var Module={canvas:document.querySelector('canvas'),print:console.log,printErr:console.error,onRuntimeInitialized(){document.querySelector('#status').textContent='Client loaded';}};</script>
 <script src="remote-fs.js"></script>
+<script src="browser-auto-attack.js"></script>
 <script type="module">
 import {createAdapter} from './browser-adapter.mjs';
 const baseUrl=(location.protocol==='https:'?'wss:':'ws:')+'//'+location.host;
