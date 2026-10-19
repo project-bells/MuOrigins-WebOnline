@@ -45,6 +45,19 @@ sudo docker logs -f muweb-client-link
 
 Linker ตรวจ compile container และเทียบ fingerprint ของ compiler/source/headers/compile.py กับ state เดิมก่อนใช้ objects ไม่แก้ compile.py ในการเพิ่มขั้น link นี้ จึงไม่ทำให้ 332 objects ที่เพิ่ง build เสร็จหมดอายุโดยไม่มีเหตุผล
 
+แก้ปัญหา undefined mu_gdi_current_font / mu_font_query: browser/mu_gdi.cpp มี implementation จริง แต่ไม่มีอยู่ใน m2-sources.txt ของ upstream ส่วน Windows batch เดิม link ทุก object ที่ค้างอยู่ใน out/all จึงอาจพึ่งไฟล์นี้โดยไม่ได้ระบุใน manifest ใหม่ Link checkpoint จะ compile mu_gdi.cpp เพิ่มหนึ่งไฟล์ก่อน link รวม 333 objects โดยไม่ invalidate/recompile 332 objects เดิม และไม่ใช้ dummy stubs หรือปิด undefined-symbol errors
+
+หาก link ครั้งก่อนจบ failure แล้ว ให้เก็บ logs และลบเฉพาะ container link ที่จบแล้วก่อน retry:
+
+```bash
+sudo docker inspect --format 'status={{.State.Status}} oom={{.State.OOMKilled}} exit={{.State.ExitCode}}' muweb-client-link
+sudo docker rm muweb-client-link
+bash deploy/build-client/start-link.sh
+sudo docker logs -f muweb-client-link
+```
+
+docker rm ไม่ลบ bind-mounted objects/logs ใน work/client-build และไม่ได้ลบ compile container หรือ lab gateway; ถ้ายัง running จะไม่ลบเพราะไม่ได้ใช้ -f
+
 จำกัด CPU 1 core / RAM 2560 MiB / memory-swap เท่ากับ RAM / 256 pids และไม่มี network ต้องมี MemAvailable อย่างน้อย 3 GiB และ disk ว่าง 5 GiB ก่อนเริ่ม ถ้าเกิน memory cap งานอาจจบ OOM ให้ตรวจสถานะ ไม่เพิ่มขีดจำกัดโดยอัตโนมัติ
 
 ผลอยู่ใน directory ใหม่ใต้ `work/client-build/releases/` ทุกครั้ง ไม่มีการ copy เว็บ/เปลี่ยน Nginx หรือชี้ gateway ไป GameServer จริง ไฟล์หลักคือ shell_login.js, shell_login.wasm และ shell_login.data โดยใช้ link options และ preloaded assets ตาม upstream batch script

@@ -11,6 +11,31 @@ import sys
 from renderer_patch import rules_from_source, apply_rules
 
 
+LINK_SUPPLEMENTS = ["browser/mu_gdi.cpp"]
+
+
+def compile_supplements(root, release, compiler, plan, run=subprocess.run):
+    existing = {entry for entry, _ in plan}
+    objects = []
+    for entry in LINK_SUPPLEMENTS:
+        if entry in existing:
+            continue
+        source = root / entry
+        if not source.is_file():
+            raise RuntimeError("Missing browser font implementation: " + str(source))
+        obj = release / (Path(entry).name + ".o")
+        log = release / (Path(entry).name + ".compile.log")
+        print("Compile link supplement:", entry, flush=True)
+        with log.open("w") as handle:
+            process = run(["em++", "-std=c++17", *compiler.FLAGS, str(source), "-o", str(obj)],
+                          stdout=handle, stderr=subprocess.STDOUT)
+        if process.returncode or not obj.is_file() or not obj.stat().st_size:
+            print(log.read_text(errors="replace")[-16000:], flush=True)
+            raise RuntimeError("Browser font supplement compilation failed; log: " + str(log))
+        objects.append(str(obj))
+    return objects
+
+
 def main():
     root = Path("/src/src/client")
     build = Path("/build")
@@ -42,6 +67,11 @@ def main():
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     release = build / "releases" / (stamp + "-" + state["build_id"][:12])
     release.mkdir(parents=True, exist_ok=False)
+    # Upstream m2-sources.txt omits the GDI bridge; its Windows linker picked
+    # this object up from the existing out/all directory. Compile it explicitly
+    # here, preserving the already verified 332 checkpoint objects.
+    supplementary_objects = compile_supplements(root, release, compiler, plan)
+    objects.extend(supplementary_objects)
     command = ["em++", "-std=c++17", "--profiling-funcs", "-sEMULATE_FUNCTION_POINTER_CASTS=1",
                "-ferror-limit=30", "-sDEFAULT_TO_CXX", "-o", str(release / "shell_login.js"),
                "-sLEGACY_GL_EMULATION", "-sGL_FFP_ONLY", "-sMIN_WEBGL_VERSION=2", "-sMAX_WEBGL_VERSION=2",
@@ -76,6 +106,7 @@ def main():
             raise RuntimeError("Missing release artifact: " + name)
         files[name] = {"bytes": file.stat().st_size, "sha256": hashlib.sha256(file.read_bytes()).hexdigest()}
     manifest = {"compiler": version, "compile_build_id": state["build_id"], "renderer_rules": len(rules),
+                "link_supplements": [Path(file).name for file in supplementary_objects],
                 "renderer_source_sha256": hashlib.sha256(patch_source.read_bytes()).hexdigest(),
                 "files": files, "browser_runtime_verified": False}
     (release / "release.json").write_text(json.dumps(manifest, indent=2))
