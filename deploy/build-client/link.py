@@ -33,15 +33,31 @@ def extract_tick_check(source):
 
 def compile_tick_check(root, release, compiler):
     source = release / "upstream_gameguard_tick.cpp"
-    source.write_text(extract_tick_check((root / "src/WinMain.cpp").read_text(encoding="utf-8-sig")))
+    upstream = (root / "src/WinMain.cpp").read_text(encoding="utf-8-sig")
+    source.write_text('#include "stdafx.h"\n' + extract_tick_check(upstream) + extract_opengl_release(upstream))
     obj = release / "upstream_gameguard_tick.cpp.o"
     log = release / "upstream_gameguard_tick.compile.log"
     with log.open("w") as handle:
-        subprocess.run(["em++", "-std=c++17", *compiler.FLAGS, str(source), "-o", str(obj)],
+        includes = [Path("/build/include"), root / "browser", root / "browser/compat", root / "src",
+                    root / "lib/libjpeg/jpeg-6b", root / "lib/miniaudio"]
+        include_flags = [arg for directory in includes for arg in ("-I", str(directory))]
+        subprocess.run(["em++", "-std=c++17", *compiler.FLAGS, *include_flags, str(source), "-o", str(obj)],
                        stdout=handle, stderr=subprocess.STDOUT, check=True)
     if not obj.is_file() or not obj.stat().st_size:
         raise RuntimeError("Missing upstream watchdog object; log: " + str(log))
     return str(obj)
+
+
+def extract_opengl_release(source):
+    matches = re.findall(r"^void OpenGL_Release\(void\)\s*\n\{\n(.*?)^\}", source,
+                         flags=re.MULTILINE | re.DOTALL)
+    if len(matches) != 1:
+        raise RuntimeError("Expected one upstream OpenGL_Release definition")
+    body = matches[0]
+    active = "".join(re.sub(r"//[^\n]*", "", body).split())
+    if active != "FreeDirectSound();gWindow.ReleaseOpenGL();ShowCursor(1);":
+        raise RuntimeError("Upstream OpenGL cleanup changed; browser port requires review")
+    return "void OpenGL_Release(void)\n{\n" + body + "}\n"
 
 
 def compile_supplements(root, release, compiler, plan, run=subprocess.run):

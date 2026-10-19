@@ -10,6 +10,14 @@ spec.loader.exec_module(linker)
 
 
 class LinkSupplementTests(unittest.TestCase):
+    def test_opengl_cleanup_preserves_sound_context_and_cursor_order(self):
+        definition = "void OpenGL_Release(void)\n{\n    // cleanup\n    FreeDirectSound();\n    gWindow.ReleaseOpenGL();\n    ShowCursor(1);\n}\n"
+        self.assertEqual(linker.extract_opengl_release(definition), definition)
+
+    def test_changed_opengl_cleanup_requires_review(self):
+        with self.assertRaisesRegex(RuntimeError, "requires review"):
+            linker.extract_opengl_release("void OpenGL_Release(void)\n{\n    ShowCursor(1);\n}\n")
+
     def test_watchdog_copies_upstream_definition_only(self):
         definition = "void GameGuard_TickCheck(void)\n{\n    // upstream disabled\n}\n"
         self.assertEqual(linker.extract_tick_check("void GameGuard_TickCheck(void);\n" + definition), definition)
