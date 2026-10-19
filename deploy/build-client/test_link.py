@@ -10,6 +10,18 @@ spec.loader.exec_module(linker)
 
 
 class LinkSupplementTests(unittest.TestCase):
+    def test_watchdog_copies_upstream_definition_only(self):
+        definition = "void GameGuard_TickCheck(void)\n{\n    // upstream disabled\n}\n"
+        self.assertEqual(linker.extract_tick_check("void GameGuard_TickCheck(void);\n" + definition), definition)
+
+    def test_watchdog_rejects_active_native_code(self):
+        with self.assertRaisesRegex(RuntimeError, "requires review"):
+            linker.extract_tick_check("void GameGuard_TickCheck(void)\n{\n    native_check();\n}\n")
+
+    def test_watchdog_missing_definition_stops_build(self):
+        with self.assertRaisesRegex(RuntimeError, "Expected one"):
+            linker.extract_tick_check("void GameGuard_TickCheck(void);\n")
+
     def test_adds_both_runtime_objects_with_existing_compile_flags(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "client"

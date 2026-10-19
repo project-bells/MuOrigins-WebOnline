@@ -4,6 +4,7 @@ import datetime
 import hashlib
 import importlib.util
 import json
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -14,6 +15,33 @@ from renderer_patch import rules_from_source, apply_rules
 BROWSER_RUNTIME_SOURCES = ["browser/shell_login.cpp", "browser/net_ws.cpp",
                            "browser/mu_mesh_draw.cpp", "browser/mu_gdi.cpp", "browser/mu_profile.cpp"]
 LINK_SUPPLEMENTS = ["browser/mu_gdi.cpp", "browser/mu_profile.cpp"]
+
+
+def extract_tick_check(source):
+    # Copy the pinned upstream definition, rather than inventing a replacement.
+    matches = re.findall(r"^void GameGuard_TickCheck\(void\)\s*\n\{\n(.*?)^\}", source,
+                         flags=re.MULTILINE | re.DOTALL)
+    if len(matches) != 1:
+        raise RuntimeError("Expected one upstream GameGuard_TickCheck definition")
+    body = matches[0]
+    # This upstream revision contains comments only. Stop for review if that changes:
+    # active native GameGuard code cannot silently be discarded or ported this way.
+    if any(line.strip() and not line.lstrip().startswith("//") for line in body.splitlines()):
+        raise RuntimeError("Upstream GameGuard watchdog changed; browser port requires review")
+    return "void GameGuard_TickCheck(void)\n{\n" + body + "}\n"
+
+
+def compile_tick_check(root, release, compiler):
+    source = release / "upstream_gameguard_tick.cpp"
+    source.write_text(extract_tick_check((root / "src/WinMain.cpp").read_text(encoding="utf-8-sig")))
+    obj = release / "upstream_gameguard_tick.cpp.o"
+    log = release / "upstream_gameguard_tick.compile.log"
+    with log.open("w") as handle:
+        subprocess.run(["em++", "-std=c++17", *compiler.FLAGS, str(source), "-o", str(obj)],
+                       stdout=handle, stderr=subprocess.STDOUT, check=True)
+    if not obj.is_file() or not obj.stat().st_size:
+        raise RuntimeError("Missing upstream watchdog object; log: " + str(log))
+    return str(obj)
 
 
 def compile_supplements(root, release, compiler, plan, run=subprocess.run):
@@ -78,6 +106,7 @@ def main():
     # linker picked up objects from out/all. Include both explicitly here,
     # preserving the already verified 332 checkpoint objects.
     supplementary_objects = compile_supplements(root, release, compiler, plan)
+    supplementary_objects.append(compile_tick_check(root, release, compiler))
     objects.extend(supplementary_objects)
     command = ["em++", "-std=c++17", "--profiling-funcs", "-sEMULATE_FUNCTION_POINTER_CASTS=1",
                "-ferror-limit=30", "-sDEFAULT_TO_CXX", "-o", str(release / "shell_login.js"),
