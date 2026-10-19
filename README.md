@@ -4,6 +4,8 @@
 
 **ติดตั้ง Google Cloud:** [คู่มือภาษาไทยแบบแยก VM/VPC/ฐานข้อมูลจากเซิร์ฟเวอร์เดิม](deploy/gcp/INSTALL.th.md)
 
+**VM เดิมที่ตรวจแล้ว:** [เพิ่มหน้าทดสอบ WSS ที่มีรหัสผ่านโดยคงหน้า Solo เดิม](deploy/same-vm/README.th.md)
+
 เริ่มจาก `compose.smoke.yml` เพื่อทดสอบ WSS กับ backend จำลองก่อน แล้วจึงใช้ `compose.game.yml` สร้าง GameServer/DB staging ใหม่ Browser C++ ยังต้อง build และทดสอบเข้าเกมจริงก่อนเปิดให้ผู้เล่นใช้งาน
 
 อ่าน `REPORT.th.md` สำหรับผลตรวจ source, paths/functions จริง, protocol และรายการที่ยังไม่พิสูจน์
