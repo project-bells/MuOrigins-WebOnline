@@ -13,7 +13,13 @@
   status.setAttribute('role', 'status');
   status.textContent = 'กำลังโหลดระบบโจมตี';
   panel.append(button, status);
-  module.canvas.before(panel);
+  const canvas = module?.canvas || document.querySelector('canvas');
+  if (canvas) canvas.before(panel);
+  else document.body.append(panel);
+  if (!module) {
+    status.textContent = 'Auto Attack โหลดผิดลำดับ: ไม่พบ Module';
+    return;
+  }
   let ready = false;
   let active = false;
   function stop(reason = 'หยุดแล้ว') {
