@@ -45,7 +45,9 @@ sudo docker logs -f muweb-client-link
 
 Linker ตรวจ compile container และเทียบ fingerprint ของ compiler/source/headers/compile.py กับ state เดิมก่อนใช้ objects ไม่แก้ compile.py ในการเพิ่มขั้น link นี้ จึงไม่ทำให้ 332 objects ที่เพิ่ง build เสร็จหมดอายุโดยไม่มีเหตุผล
 
-แก้ปัญหา undefined mu_gdi_current_font / mu_font_query: browser/mu_gdi.cpp มี implementation จริง แต่ไม่มีอยู่ใน m2-sources.txt ของ upstream ส่วน Windows batch เดิม link ทุก object ที่ค้างอยู่ใน out/all จึงอาจพึ่งไฟล์นี้โดยไม่ได้ระบุใน manifest ใหม่ Link checkpoint จะ compile mu_gdi.cpp เพิ่มหนึ่งไฟล์ก่อน link รวม 333 objects โดยไม่ invalidate/recompile 332 objects เดิม และไม่ใช้ dummy stubs หรือปิด undefined-symbol errors
+แก้ปัญหา undefined mu_gdi_current_font / mu_font_query / mu_profile_write: browser/mu_gdi.cpp และ browser/mu_profile.cpp มี implementation จริง แต่ไม่มีอยู่ใน m2-sources.txt ของ upstream ส่วน Windows batch เดิม link ทุก object ที่ค้างอยู่ใน out/all จึงอาจพึ่งไฟล์เหล่านี้โดยไม่ได้ระบุใน manifest ใหม่ Link checkpoint จะ compile mu_gdi.cpp และ mu_profile.cpp เพิ่มก่อน link รวม 334 objects โดยไม่ invalidate/recompile 332 objects เดิม และไม่ใช้ dummy stubs หรือปิด undefined-symbol errors
+
+ตรวจ runtime support files แล้ว: shell_login.cpp, net_ws.cpp และ mu_mesh_draw.cpp อยู่ใน compile checkpoint; mu_gdi.cpp และ mu_profile.cpp เป็น link supplements ไฟล์ browser ที่เหลือเป็น probes หรือ shell milestone เก่าที่มี main ของตัวเอง จึงไม่เหมารวมเข้า executable เดียวกัน ตัว linker จะหยุดหากมี mu_*.cpp ใหม่ที่ยังไม่มีในรายการ build
 
 หาก link ครั้งก่อนจบ failure แล้ว ให้เก็บ logs และลบเฉพาะ container link ที่จบแล้วก่อน retry:
 

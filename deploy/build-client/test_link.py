@@ -10,12 +10,13 @@ spec.loader.exec_module(linker)
 
 
 class LinkSupplementTests(unittest.TestCase):
-    def test_adds_missing_font_object_with_existing_compile_flags(self):
+    def test_adds_both_runtime_objects_with_existing_compile_flags(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "client"
-            source = root / "browser/mu_gdi.cpp"
-            source.parent.mkdir(parents=True)
-            source.write_text("// fixture")
+            for entry in linker.LINK_SUPPLEMENTS:
+                source = root / entry
+                source.parent.mkdir(parents=True, exist_ok=True)
+                source.write_text("// fixture")
             release = Path(directory) / "release"
             release.mkdir()
             calls = []
@@ -24,10 +25,10 @@ class LinkSupplementTests(unittest.TestCase):
                 Path(command[command.index("-o") + 1]).write_bytes(b"fixture-object")
                 return types.SimpleNamespace(returncode=0)
             result = linker.compile_supplements(root, release, types.SimpleNamespace(FLAGS=["-c", "-O2"]), [], run)
-            self.assertEqual(len(result), 1)
+            self.assertEqual(len(result), 2)
             self.assertIn("-c", calls[0])
-            self.assertIn(str(source), calls[0])
-            self.assertEqual(Path(result[0]).name, "mu_gdi.cpp.o")
+            self.assertEqual({Path(file).name for file in result}, {"mu_gdi.cpp.o", "mu_profile.cpp.o"})
+            self.assertEqual({command[-3] for command in calls}, {str(root / entry) for entry in linker.LINK_SUPPLEMENTS})
 
     def test_failed_supplement_stops_before_link(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -38,11 +39,17 @@ class LinkSupplementTests(unittest.TestCase):
                 linker.compile_supplements(root, root, types.SimpleNamespace(FLAGS=["-c"]), [],
                                            lambda *args, **kwargs: types.SimpleNamespace(returncode=1))
 
-    def test_existing_font_translation_unit_is_not_linked_twice(self):
+    def test_existing_runtime_translation_units_are_not_linked_twice(self):
         result = linker.compile_supplements(Path("unused"), Path("unused"), None,
-                                            [("browser/mu_gdi.cpp", "browser/mu_gdi.cpp.o")],
+                                            [(entry, entry + ".o") for entry in linker.LINK_SUPPLEMENTS],
                                             lambda *args, **kwargs: self.fail("must not compile twice"))
         self.assertEqual(result, [])
+
+    def test_all_active_browser_support_files_are_accounted_for(self):
+        self.assertEqual(set(linker.BROWSER_RUNTIME_SOURCES), {
+            "browser/shell_login.cpp", "browser/net_ws.cpp", "browser/mu_mesh_draw.cpp",
+            "browser/mu_gdi.cpp", "browser/mu_profile.cpp"})
+        self.assertTrue(set(linker.LINK_SUPPLEMENTS).issubset(linker.BROWSER_RUNTIME_SOURCES))
 
 
 if __name__ == "__main__":

@@ -11,7 +11,9 @@ import sys
 from renderer_patch import rules_from_source, apply_rules
 
 
-LINK_SUPPLEMENTS = ["browser/mu_gdi.cpp"]
+BROWSER_RUNTIME_SOURCES = ["browser/shell_login.cpp", "browser/net_ws.cpp",
+                           "browser/mu_mesh_draw.cpp", "browser/mu_gdi.cpp", "browser/mu_profile.cpp"]
+LINK_SUPPLEMENTS = ["browser/mu_gdi.cpp", "browser/mu_profile.cpp"]
 
 
 def compile_supplements(root, release, compiler, plan, run=subprocess.run):
@@ -22,7 +24,7 @@ def compile_supplements(root, release, compiler, plan, run=subprocess.run):
             continue
         source = root / entry
         if not source.is_file():
-            raise RuntimeError("Missing browser font implementation: " + str(source))
+            raise RuntimeError("Missing browser runtime implementation: " + str(source))
         obj = release / (Path(entry).name + ".o")
         log = release / (Path(entry).name + ".compile.log")
         print("Compile link supplement:", entry, flush=True)
@@ -31,7 +33,7 @@ def compile_supplements(root, release, compiler, plan, run=subprocess.run):
                           stdout=handle, stderr=subprocess.STDOUT)
         if process.returncode or not obj.is_file() or not obj.stat().st_size:
             print(log.read_text(errors="replace")[-16000:], flush=True)
-            raise RuntimeError("Browser font supplement compilation failed; log: " + str(log))
+            raise RuntimeError("Browser runtime supplement compilation failed; log: " + str(log))
         objects.append(str(obj))
     return objects
 
@@ -46,6 +48,11 @@ def main():
     if " 6.0.12 " not in version:
         raise RuntimeError("Unexpected compiler: " + version)
     plan = compiler.source_plan(root)
+    covered = {entry for entry, _ in plan} | set(LINK_SUPPLEMENTS)
+    runtime_sources = set(BROWSER_RUNTIME_SOURCES)
+    runtime_sources.update("browser/" + file.name for file in (root / "browser").glob("mu_*.cpp"))
+    if runtime_sources - covered:
+        raise RuntimeError("Browser runtime files absent from build plan: " + repr(sorted(runtime_sources - covered)))
     state = json.loads((build / "compile-state.json").read_text())
     digest = hashlib.sha256((version + repr(compiler.FLAGS) + repr(plan)).encode())
     digest.update(Path(compiler.__file__).read_bytes())
@@ -67,9 +74,9 @@ def main():
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     release = build / "releases" / (stamp + "-" + state["build_id"][:12])
     release.mkdir(parents=True, exist_ok=False)
-    # Upstream m2-sources.txt omits the GDI bridge; its Windows linker picked
-    # this object up from the existing out/all directory. Compile it explicitly
-    # here, preserving the already verified 332 checkpoint objects.
+    # The upstream source list omits the GDI and profile bridges; the Windows
+    # linker picked up objects from out/all. Include both explicitly here,
+    # preserving the already verified 332 checkpoint objects.
     supplementary_objects = compile_supplements(root, release, compiler, plan)
     objects.extend(supplementary_objects)
     command = ["em++", "-std=c++17", "--profiling-funcs", "-sEMULATE_FUNCTION_POINTER_CASTS=1",
