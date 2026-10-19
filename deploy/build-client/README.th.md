@@ -1,5 +1,7 @@
 # Compile checkpoint บน WebOnline VM ใหม่
 
+อัปเดตจากผล VM: compile ครบ 332 objects แล้ว โดย container จบ exited/exit=0/oom=false ขั้นต่อไปใช้ link checkpoint ด้านล่าง ไม่ต้อง compile ใหม่หาก source/compiler ไม่เปลี่ยน
+
 ABI/protocol-header probes ผ่านบน VM `instance-20261019-125137` โดยใช้ emscripten/emsdk:6.0.12 (digest ที่ผู้ใช้ pull: sha256:77638e6c215a65f25a704c0c831d5c2463a8c0468a58c6cb82489dbe621dfa05)
 
 ขั้นต่อไป compile ทุก translation unit ใน m2-sources.txt ของ browser base fb5d6ae พร้อม shell_login/net_ws/mu_mesh_draw และ native protocol static assertions ไม่ link หรือเผยแพร่เว็บในขั้นนี้
@@ -31,3 +33,31 @@ sudo docker stats --no-stream muweb-client-build
 ก่อน retry ตรวจว่า container จบแล้ว จากนั้นใช้ `sudo docker rm muweb-client-build` แล้วรัน start.sh อีกครั้ง (อย่าใช้ -f กับ container ที่ยังทำงาน) Object ที่สำเร็จใช้ต่อได้เฉพาะ fingerprint ของ compiler/script/flags/source/headers ตรงกันทั้งหมด หาก source/header เปลี่ยนจะ compile ใหม่ ไม่ใช้ stale object
 
 ผลทั้งหมดอยู่ใน ignored `work/client-build/` โดย source ดั้งเดิมอยู่ `upstream/browser/` และถูกแก้เฉพาะ candidate patch ไม่ copy ทับ /srv/muweb/static และไม่เปลี่ยน Nginx
+
+## Link checkpoint หลัง compile ผ่าน
+
+```bash
+cd ~/muorigins-webonline-lab
+git pull --ff-only origin main
+bash deploy/build-client/start-link.sh
+sudo docker logs -f muweb-client-link
+```
+
+Linker ตรวจ compile container และเทียบ fingerprint ของ compiler/source/headers/compile.py กับ state เดิมก่อนใช้ objects ไม่แก้ compile.py ในการเพิ่มขั้น link นี้ จึงไม่ทำให้ 332 objects ที่เพิ่ง build เสร็จหมดอายุโดยไม่มีเหตุผล
+
+จำกัด CPU 1 core / RAM 2560 MiB / memory-swap เท่ากับ RAM / 256 pids และไม่มี network ต้องมี MemAvailable อย่างน้อย 3 GiB และ disk ว่าง 5 GiB ก่อนเริ่ม ถ้าเกิน memory cap งานอาจจบ OOM ให้ตรวจสถานะ ไม่เพิ่มขีดจำกัดโดยอัตโนมัติ
+
+ผลอยู่ใน directory ใหม่ใต้ `work/client-build/releases/` ทุกครั้ง ไม่มีการ copy เว็บ/เปลี่ยน Nginx หรือชี้ gateway ไป GameServer จริง ไฟล์หลักคือ shell_login.js, shell_login.wasm และ shell_login.data โดยใช้ link options และ preloaded assets ตาม upstream batch script
+
+หลัง link จะอ่าน Replace-Once/Replace-Count จาก patch-login-page.ps1 ของ source ที่ตรึงไว้ โดยเป็นตัวอ่าน literal ที่จำกัดรูปแบบ ไม่ใช่ PowerShell evaluator ต้องพบจำนวน matches ตรงทุกกฎ มิฉะนั้นหยุดโดยไม่ประกาศ release สำเร็จ แก้ renderer รวม 17 กฎและลบ include comments ตามขั้น upstream จากนั้นตรวจ JS syntax, ชื่อ network exports และ hashes ของ artifacts
+
+ตรวจ port renderer ในเครื่องพัฒนาแล้ว: อ่าน 17 กฎได้และ reverse/apply round trip กับ web/shell_login.js ของ upstream กลับมาเหมือนเดิมทั้งหมด นี่พิสูจน์ความตรงของ literal transformations กับ artifact อ้างอิง ไม่ใช่การรัน renderer ใหม่ใน browser Native link บน Linux VM ยังต้องยืนยันด้วยผลของขั้นนี้
+
+สำเร็จต้องเห็น CLIENT_LINK_PASS และมี release.json/ล่าสุดใน latest-linked-release.txt ชื่อ exported functions ใน JS เป็นการตรวจขั้นต้นเท่านั้น Browser rendering, runtime exports จริง, login และ Windows coexistence ยังต้องพิสูจน์
+
+```bash
+sudo docker inspect --format 'status={{.State.Status}} oom={{.State.OOMKilled}} exit={{.State.ExitCode}}' muweb-client-link
+cat work/client-build/latest-linked-release.txt
+```
+
+หาก failure ส่งข้อความช่วงท้ายและ container status กลับมา Log เต็มอยู่ใน release directory ที่แสดง Linker เก็บ unpatched JS ถ้า renderer stage เริ่มทำแล้ว และจะไม่แก้ latest-linked-release.txt เมื่อขั้นตอนนั้นล้มเหลว ก่อน retry ตรวจ container จบแล้วจึง `sudo docker rm muweb-client-link` โดยไม่ใช้ -f กับงานที่ยังทำอยู่
