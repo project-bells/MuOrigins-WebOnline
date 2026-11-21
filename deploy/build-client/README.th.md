@@ -2,9 +2,9 @@
 
 อัปเดตจากผล VM: compile ครบ 332 objects แล้ว โดย container จบ exited/exit=0/oom=false ขั้นต่อไปใช้ link checkpoint ด้านล่าง ไม่ต้อง compile ใหม่หาก source/compiler ไม่เปลี่ยน
 
-ABI/protocol-header probes ผ่านบน VM `instance-20261019-125137` โดยใช้ emscripten/emsdk:6.0.12 (digest ที่ผู้ใช้ pull: sha256:77638e6c215a65f25a704c0c831d5c2463a8c0468a58c6cb82489dbe621dfa05)
+Launcher ปัจจุบันจำกัดไว้ที่ VM `mu-instance-20261111-1148` และใช้ emscripten/emsdk:6.0.12 (digest ที่ตรวจไว้: sha256:77638e6c215a65f25a704c0c831d5c2463a8c0468a58c6cb82489dbe621dfa05)
 
-ขั้นต่อไป compile ทุก translation unit ใน m2-sources.txt ของ browser base fb5d6ae พร้อม shell_login/net_ws/mu_mesh_draw และ native protocol static assertions ไม่ link หรือเผยแพร่เว็บในขั้นนี้
+ขั้นต่อไป compile ทุก translation unit ใน m2-sources.txt ของ browser base fb5d6ae พร้อม shell_login/net_ws/mu_mesh_draw, SecureChannel, Monocypher และ native protocol static assertions ไม่ link หรือเผยแพร่เว็บในขั้นนี้ หลังเพิ่ม SecureLink ต้อง compile ใหม่ทั้งหมด ห้ามใช้ object 332 ชุดเดิม
 
 ```bash
 cd ~/muorigins-webonline-lab

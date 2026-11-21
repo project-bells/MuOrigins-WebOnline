@@ -22,29 +22,23 @@ npm test
 node audit-source.mjs upstream/browser upstream/server
 ```
 
-Current local package verification: **17 passing tests** (the original 16 plus the Google Cloud staging TCP fixture). Docker/Compose/Nginx/GCP runtime validation and native browser compilation remain pending.
+Current local package verification: **20 passing tests**, including checks that the 0.97.45 SecureLink sources and protocol-13 negotiation are present in the browser build plan. Docker/Compose/Nginx/GCP runtime validation and native browser compilation remain pending.
 
 All integration tests create only loopback mock TCP/WebSocket servers on ephemeral ports. No production endpoints or account credentials are configured in the tests. Source audit reads the two pinned local checkouts and emits hashes/algebra/policy comparisons; it does not execute their C++ code.
 
-## Build the browser staging candidate (not yet executed)
+## Build the browser 0.97.45 candidate
 
 Browser base commit: `fb5d6aed769e6384a2f25164e75eded456307be7`.
 
 1. Use a separate checkout at that commit. Run `git apply --check /absolute/path/to/browser-online.patch`, then `git apply /absolute/path/to/browser-online.patch` there. `client-overlay/` contains the same replacement files for inspection; don't apply both methods.
-2. In `src/client/src/Config/ServerConfig.h`, set CustomerName, ServerSerial and ClientVersion to the isolated staging server identity. Keep ConnectServerPort nonzero. The default CS logical identity `127.0.0.1:44405` maps to the gateway; it does not mean the browser opens a raw TCP socket.
+2. The patch sets the game-client version to `0.97.40` (the value required by Mu-Linux release 0.97.45), negotiates protocol 13, and pins the inspected server Ed25519 identity. If the server identity is intentionally rotated, update the pin from a trusted server console before rebuilding. Keep ConnectServerPort nonzero. The default CS logical identity `127.0.0.1:44405` maps to the gateway; it does not mean the browser opens a raw TCP socket.
 3. Update the two endpoint mappings in `remote.html` to match the configured ConnectServer identity and the **advertised** address/port in its F4/03 response. Configure gateway routes separately to private staging daemon addresses. Unknown redirects fail closed.
 4. Activate Emscripten and run `src/client/compile-objects.bat`, then `src/client/link-login.bat` from a clean candidate checkout. The linker script alone recompiles only the shell/transport/mesh; it is insufficient for the changed `Recv_Account.cpp` and `Scene_CharSelect_Nav.cpp`. Check all compile/link results; no Emscripten build was performed in this session.
 5. The upstream linker copies output into its checkout's web directory and patches the solo page. Do not deploy that page. Place the rebuilt `shell_login.js`, matching `.wasm` and `.data` artifacts together with `remote.html`, `remote-fs.js`, and `browser-adapter.mjs` in an isolated static document root. Preserve any other files the build references. Use `remote.html` as the entry point and do not load `app.js` or `server_worker.js`.
 6. Confirm the rebuilt Module exports `_mu_net_push_open`, `_mu_net_get_push_buffer`, `_mu_net_push_packet`, `_mu_net_push_disconnect` and exposes `HEAPU8`. New callback uses EMSCRIPTEN_KEEPALIVE, but this has not been proven through linking in this environment.
 7. Run the staging acceptance sequence from the report. Desktop mouse/keyboard are the initial target; mobile controls and visual QA are pending.
 
-To regenerate overlay/patch/filesystem hook from the unmodified pinned browser source:
-
-```powershell
-node prepare-browser.mjs upstream/browser
-```
-
-The generator fails on missing expected source fragments. `browser-online.patch` was checked for clean application to the pinned base, not compiled.
+`prepare-browser.mjs` is the older pre-SecureLink generator and must not be used to regenerate this protocol-13 patch. `browser-online.patch` was checked for clean application to the pinned base; a fresh Emscripten compile/link and browser login test are still required.
 
 ## Gateway configuration
 
@@ -76,9 +70,9 @@ Dependencies are locked in package-lock.json. Image/dependency security review, 
 
 ## Files and status
 
-- `gateway.mjs`, `browser-adapter.mjs`, `framing.mjs`, `test/`: 16 passing JS tests.
+- `gateway.mjs`, `browser-adapter.mjs`, `framing.mjs`, `test/`: 20 passing tests.
 - `source-evidence.json`: original source functions/lines/hashes, key compatibility and 272 policy rows.
-- `client-overlay/`, `browser-online.patch`: candidate C++ changes, application check passed; native build/runtime unverified.
+- `client-overlay/`, `browser-online.patch`: 0.97.45 SecureLink (X25519, Ed25519 and XChaCha20-Poly1305), protocol 13 and login-version changes; application check passed, native build/runtime unverified.
 - `remote.html`, `remote-fs.js`: staging browser entry and upstream filesystem compatibility hook; visual/runtime testing unverified.
 - `Dockerfile`, `compose.staging.yml`, `nginx.staging.conf`: deployment examples, not validated by their runtimes.
 - `REPORT.th.md`: detailed analysis and next acceptance gates.

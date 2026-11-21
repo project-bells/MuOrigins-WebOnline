@@ -9,6 +9,7 @@ import sys
 FLAGS = ["-c", "-O2", "-ferror-limit=5", "-Wno-macro-redefined",
          "-Wno-ignored-attributes", "-Wno-deprecated-non-prototype", "-Wno-c++11-narrowing"]
 EXTRA = ["browser/shell_login.cpp", "browser/net_ws.cpp", "browser/mu_mesh_draw.cpp",
+         "browser/SecureChannel.cpp", "browser/crypto/monocypher.c",
          "src/Net/Protocol/Protocol_Check.cpp"]
 
 

@@ -13,7 +13,8 @@ from renderer_patch import rules_from_source, apply_rules
 
 
 BROWSER_RUNTIME_SOURCES = ["browser/shell_login.cpp", "browser/net_ws.cpp",
-                           "browser/mu_mesh_draw.cpp", "browser/mu_gdi.cpp", "browser/mu_profile.cpp"]
+                           "browser/mu_mesh_draw.cpp", "browser/mu_gdi.cpp", "browser/mu_profile.cpp",
+                           "browser/SecureChannel.cpp", "browser/crypto/monocypher.c"]
 LINK_SUPPLEMENTS = ["browser/mu_gdi.cpp", "browser/mu_profile.cpp"]
 
 

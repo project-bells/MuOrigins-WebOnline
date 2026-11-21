@@ -2,7 +2,7 @@
 set -euo pipefail
 repo_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
-if [[ "$(hostname -s)" != instance-20261019-125137 ]]; then
+if [[ "$(hostname -s)" != mu-instance-20261111-1148 ]]; then
   echo "STOP: this launcher targets only the new inspected WebOnline VM" >&2
   exit 1
 fi

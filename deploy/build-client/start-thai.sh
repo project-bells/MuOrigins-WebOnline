@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 repo_root="$PWD"
-[[ "$(hostname -s)" == instance-20261019-125137 ]] || { echo 'STOP: wrong VM'; exit 1; }
+[[ "$(hostname -s)" == mu-instance-20261111-1148 ]] || { echo 'STOP: wrong VM'; exit 1; }
 phase="${1:-compile}"
 case "$phase" in
   compile) name=muweb-client-thai-build; memory=2g; tool=compile.py ;;
