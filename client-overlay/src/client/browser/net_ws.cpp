@@ -22,6 +22,8 @@ static unsigned char* g_in = 0;
 static int g_in_cap = 0;
 static int g_in_len = 0;
 static int g_sends = 0;
+static int g_drain_scheduled = 0;
+static int g_secure_ready_logged = 0;
 static SecureChannel g_secure;
 static std::vector<std::vector<unsigned char>> g_early;
 
@@ -129,6 +131,19 @@ static void drain_in() {
     }
 }
 
+static void drain_later(void*) {
+    g_drain_scheduled = 0;
+    drain_in();
+}
+
+static void schedule_drain() {
+    if (g_drain_scheduled) return;
+    g_drain_scheduled = 1;
+    // Do not re-enter the native MU packet pump from inside a WebSocket
+    // onmessage callback. The desktop client receives FD_READ on a later event.
+    emscripten_async_call(drain_later, nullptr, 0);
+}
+
 extern "C" void mu_net_push_disconnect(void);
 static unsigned char g_push_buf[65536];
 
@@ -150,10 +165,19 @@ extern "C" EMSCRIPTEN_KEEPALIVE void mu_net_push_packet(int len) {
         if (reply_len && raw_send(reply, (int)reply_len) != (int)reply_len) {
             mu_net_push_disconnect(); return;
         }
+        if (g_secure.IsReady() && !g_secure_ready_logged) {
+            g_secure_ready_logged = 1;
+            printf("MU SecureLink: ready\n");
+        }
         if (g_secure.IsReady() && !flush_early()) { mu_net_push_disconnect(); return; }
         if (!plain.empty()) {
+            printf("MU SecureLink: plain=%u head=%02X %02X %02X %02X\n",
+                   (unsigned)plain.size(), plain[0],
+                   plain.size() > 1 ? plain[1] : 0,
+                   plain.size() > 2 ? plain[2] : 0,
+                   plain.size() > 3 ? plain[3] : 0);
             if (!append_in(plain.data(), (int)plain.size())) { mu_net_push_disconnect(); return; }
-            drain_in();
+            schedule_drain();
         }
     }
 }
@@ -224,6 +248,8 @@ extern "C" int mu_net_connect(SOCKET, const void* addr, int len) {
     g_err = 0;
     g_early.clear();
     g_secure.Reset();
+    g_secure_ready_logged = 0;
+    g_drain_scheduled = 0;
     if (!addr || len < (int)sizeof(sockaddr_in)) return -1;
     const sockaddr_in* endpoint = (const sockaddr_in*)addr;
     unsigned short port = htons(endpoint->sin_port); // byte swap; compat header exposes htons only
@@ -256,6 +282,8 @@ extern "C" int mu_net_closesocket(SOCKET) {
     g_in_len = 0;
     g_early.clear();
     g_secure.Reset();
+    g_secure_ready_logged = 0;
+    g_drain_scheduled = 0;
     g_err = 0;
     return 0;
 }
